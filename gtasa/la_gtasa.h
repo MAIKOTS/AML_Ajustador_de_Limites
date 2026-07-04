@@ -4,10 +4,15 @@
 
 struct CSAPool
 {
+    struct Flags
+    {
+        uint8_t id : 7;
+        bool    empty : 1;
+    };
     void*       objects;
-    uint8_t*    flags;
-    uint32_t    count;
-    uint32_t    top;
+    Flags*      flags;
+    int32_t     count;
+    int32_t     firstfree;
     bool        ownsAllocs;
     bool        locked;
     char        pad[2];
@@ -15,15 +20,16 @@ struct CSAPool
 inline CSAPool* AllocatePool(size_t count, size_t size)
 {
     CSAPool *p = new CSAPool;
-    p->objects = new char[size*count];
-    p->flags = new uint8_t[count];
+    p->objects = new char[size * count];
     p->count = count;
-    p->top = 0xFFFFFFFF;
-    p->ownsAllocs = 1;
+    p->firstfree = -1;
+    p->ownsAllocs = true;
+    
+    p->flags = new CSAPool::Flags[count];
     for (size_t i = 0; i < count; ++i)
     {
-        p->flags[i] |= 0x80;
-        p->flags[i] &= 0x80;
+        p->flags[i].id = 0;
+        p->flags[i].empty = true;
     }
     return p;
 }

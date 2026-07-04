@@ -1,5 +1,5 @@
 char* CarGroups;
-int groupsCount, groupsStruct, groupsAccess;
+int groupsCount, groupsStruct, groupsAccess, groupsAccess10;
 
 #define CARGRP_PATCH(__num, __addr, __exitat)   CarGroupInjection_BackTo##__num = pGameAddr + 0x##__exitat + 0x1; \
                                                 aml->Redirect(pGameAddr + 0x##__addr + 0x1, (uintptr_t)CarGroupInjection_Patch##__num);
@@ -276,7 +276,7 @@ __attribute__((optnone)) __attribute__((naked)) void CarGroupInjection_Patch17(v
 uintptr_t StreamZoneModels_Continue, StreamZoneModels_Break;
 extern "C" uintptr_t StreamZoneModels_Inject1(int val)
 {
-    return val == (10 * groupsAccess) ? StreamZoneModels_Break : StreamZoneModels_Continue;
+    return val == (groupsAccess10) ? StreamZoneModels_Break : StreamZoneModels_Continue;
 }
 __attribute__((optnone)) __attribute__((naked)) void StreamZoneModels_Patch1(void)
 {
@@ -288,11 +288,28 @@ __attribute__((optnone)) __attribute__((naked)) void StreamZoneModels_Patch1(voi
     asm("BX R12");
 }
 
+CSAPool** m_pInfoPool;
 DECL_HOOKv(InitVehicleMI)
 {
-    auto& pool = *(CSAPool**)(aml->GetSym(hGameHndl, "_ZN17CVehicleModelInfo17CVehicleStructure11m_pInfoPoolE"));
-    pool = AllocatePool(cfg->GetInt("VehicleStructs", ADJUSTED_POOL_LIMIT(50), "Vehicles"), 812);
+    *m_pInfoPool = AllocatePool(cfg->GetInt("VehicleStructs", ADJUSTED_POOL_LIMIT(50), "Vehicles"), 812);
     InitVehicleMI();
+    logger->Info("InitVehicleMI m_pInfoPool %d %d", (*m_pInfoPool)->count, (*m_pInfoPool)->firstfree);
+}
+void (*VehMI_SetClump)(int, int);
+DECL_HOOKp(CreateInst, int self)
+{
+    logger->Info("CreateInst m_pInfoPool %d %d", (*m_pInfoPool)->count, (*m_pInfoPool)->firstfree);
+    logger->Info("CreateInst vmi data: %d struct 0x%08X", self, *(int*)(self + 0x74));
+    if(*(int*)(self + 0x74) == 0)
+    {
+        logger->Info("We do a stupid-ass patch!");
+
+        // Do a stupid thing EVER.
+        // clump is 0x34
+
+        VehMI_SetClump(self, *(int*)(self + 0x34));
+    }
+    return CreateInst(self);
 }
 
 void PatchVehicles()
@@ -303,6 +320,7 @@ void PatchVehicles()
         groupsCount = cfg->GetInt("CarGroups", ADJUSTED_POOL_LIMIT(23), "Vehicles");
         if(groupsCount > 127) groupsCount = 127;
         groupsAccess = 2 * groupsCount;
+        groupsAccess10 = groupsAccess * 10;
         groupsStruct = groupsCount * 0x44;
 
         CarGroups = new char[groupsStruct] {0};
@@ -350,15 +368,17 @@ void PatchVehicles()
         CARGRP_PATCH(15, 2D7D84, 2D7D8C);
         CARGRP_PATCH(16, 2D7DA0, 2D7DA8);
         CARGRP_PATCH(17, 2D7DBC, 2D7DC4);
-        aml->Write8(pGameAddr + 0x2D7DD8 + 0x0, (uint8_t)groupsAccess);
         StreamZoneModels_Continue = pGameAddr + 0x2D7C62 + 0x1;
         StreamZoneModels_Break =    pGameAddr + 0x2D7DE4 + 0x1;
         aml->Redirect(pGameAddr + 0x2D7DDC + 0x1, (uintptr_t)StreamZoneModels_Patch1);
     }
 
     // Vehicle Structs
-    HOOKBLX(InitVehicleMI, pGameAddr + 0x466AD2 + 0x1);
-    aml->PlaceB(pGameAddr + 0x468B76 + 0x1, pGameAddr + 0x468BD8 + 0x1);
+    //HOOKBLX(InitVehicleMI, pGameAddr + 0x466AD2 + 0x1);
+    //HOOKPLT(CreateInst, pGameAddr + 0x6676E4);
+    //SET_TO(VehMI_SetClump, aml->GetSym(hGameHndl, "_ZN17CVehicleModelInfo8SetClumpEP7RpClump"));
+    //SET_TO(m_pInfoPool, aml->GetSym(hGameHndl, "_ZN17CVehicleModelInfo17CVehicleStructure11m_pInfoPoolE"));
+    //aml->PlaceB(pGameAddr + 0x468B76 + 0x1, pGameAddr + 0x468BD8 + 0x1);
 
     // DesiredNumberOfVehiclesLoaded
 

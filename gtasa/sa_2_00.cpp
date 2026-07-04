@@ -58,19 +58,23 @@ DECL_HOOKv(ColStoreInit)
     if(!pool) pool = AllocatePool(cfg->GetInt("Collisions", ADJUSTED_POOL_LIMIT(255), "PoolLimits"), 0x2C);
     ColStoreInit();
 }
+extern int entryExitsPoolCount;
 DECL_HOOKv(EntryExitManInit)
 {
     EntryExitManInit();
     auto& pool = *(CSAPool**)(aml->GetSym(hGameHndl, "_ZN17CEntryExitManager17mp_poolEntryExitsE"));
-    pool = AllocatePool(cfg->GetInt("EntryExits", ADJUSTED_POOL_LIMIT(455), "PoolLimits"), 0x3C);
+    entryExitsPoolCount = cfg->GetInt("EntryExits", ADJUSTED_POOL_LIMIT(455), "PoolLimits");
+    pool = AllocatePool(entryExitsPoolCount, 0x3C);
     pool->locked = true;
 }
+extern int stuntJumpsPoolCount;
 DECL_HOOKv(StuntJumpsInit)
 {
     // StuntJumpsInit(); // reversed
 
     auto& pool = *(CSAPool**)(aml->GetSym(hGameHndl, "_ZN17CStuntJumpManager17mp_poolStuntJumpsE"));
-    pool = AllocatePool(cfg->GetInt("StuntJumps", ADJUSTED_POOL_LIMIT(256), "PoolLimits"), 0x44);
+    stuntJumpsPoolCount = cfg->GetInt("StuntJumps", ADJUSTED_POOL_LIMIT(256), "PoolLimits");
+    pool = AllocatePool(stuntJumpsPoolCount, 0x44);
     aml->Write8(pGameAddr + 0x820000, 0x01); // CStuntJumpManager::m_bActive
 }
 
@@ -97,6 +101,7 @@ DECL_HOOKb(FxMemPoolInit, int self)
 #include "sa_2_00/vehicles.inl"
 #include "sa_2_00/entities.inl"
 #include "sa_2_00/occluders.inl"
+#include "sa_2_00/savegame.inl"
 
 // GENERIC FUNCTIONS
 static void PatchPools()
@@ -169,10 +174,11 @@ static void PatchPools()
 }
 
 // Matrices
-void* (*InitMatrixLinkList)(uintptr_t, int);
+void *gMatrixList;
+void* (*InitMatrixLinkList)(void*, int);
 DECL_HOOKv(InitMatrixArray)
 {
-    InitMatrixLinkList(aml->GetSym(hGameHndl, "gMatrixList"), cfg->GetInt("MatrixCount", ADJUSTED_POOL_LIMIT(900), "Matrices"));
+    InitMatrixLinkList(gMatrixList, cfg->GetInt("MatrixCount", ADJUSTED_POOL_LIMIT(900), "Matrices"));
 }
 
 // Scripts
@@ -227,8 +233,9 @@ void GTASA_2_00::GameLoaded()
     PatchPools();
 
     // Matrices
-    HOOKBLX(InitMatrixArray, pGameAddr + 0x471D1A + 0x1);
+    SET_TO(gMatrixList, aml->GetSym(hGameHndl, "gMatrixList"));
     SET_TO(InitMatrixLinkList, aml->GetSym(hGameHndl, "_ZN15CMatrixLinkList4InitEi"));
+    HOOKBLX(InitMatrixArray, pGameAddr + 0x471D1A + 0x1);
 
     // Scripts
     PatchScripts();
@@ -244,4 +251,7 @@ void GTASA_2_00::GameLoaded()
 
     // Misc
     PatchMisc();
+
+    // Save game
+    PatchSaveGame();
 }

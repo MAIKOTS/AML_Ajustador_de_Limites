@@ -23,6 +23,27 @@ __attribute__((optnone)) __attribute__((naked)) void InteriorOccluders_AddOne_Pa
     asm("BL InteriorOccluders_AddOne_Inject");
     asm("BX R0");
 }
+
+uintptr_t ActiveOccludersInterior_Continue, ActiveOccludersInterior_Break, ActiveOccludersNearby_Continue, ActiveOccludersNearby_Break;
+extern "C" uintptr_t ActiveOccludersInterior_Inject(int val)
+{
+    return (val < activeOccludersCount) ? ActiveOccludersInterior_Continue : ActiveOccludersInterior_Break;
+}
+extern "C" uintptr_t ActiveOccludersNearby_Inject(int val)
+{
+    return (val < activeOccludersCount) ? ActiveOccludersNearby_Continue : ActiveOccludersNearby_Break;
+}
+__attribute__((optnone)) __attribute__((naked)) void ActiveOccludersInterior_Patch(void)
+{
+    asm("BL ActiveOccludersInterior_Inject");
+    asm("BX R0");
+}
+__attribute__((optnone)) __attribute__((naked)) void ActiveOccludersNearby_Patch(void)
+{
+    asm("BL ActiveOccludersNearby_Inject");
+    asm("BX R0");
+}
+
 void PatchOccluders()
 {
     // Occluder distance
@@ -56,16 +77,26 @@ void PatchOccluders()
         InteriorOccluders_AddOne_Break =    pGameAddr + 0x5AE2FA + 0x1;
         aml->Redirect(pGameAddr + 0x5AE2F2 + 0x1, (uintptr_t)InteriorOccluders_AddOne_Patch);
     }
-    // Occluders (active) (needs patches)
-    /*if(*(uint32_t*)(pGameAddr + 0x676D6C) == (pGameAddr + 0x00A45A68))
+    // Occluders (active)
+    if(*(uint32_t*)(pGameAddr + 0x676D6C) == (pGameAddr + 0x00A45A68))
     {
         static char* aActiveOccluders;
 
         activeOccludersCount = cfg->GetInt("ActiveOccluders", ADJUSTED_POOL_LIMIT(28), "Misc");
         aActiveOccluders = new char[172 * activeOccludersCount];
-        
+
         aml->WriteAddr(pGameAddr + 0x676D6C, aActiveOccluders);
 
-        
-    }*/
+        // COcclusion::ProcessBeforeRendering: interior-occluders loop (compiler-rotated,
+        // the "<= 27" cap check appears twice, both sharing the same continue/break targets)
+        ActiveOccludersInterior_Continue = pGameAddr + 0x5AE578 + 0x1;
+        ActiveOccludersInterior_Break =    pGameAddr + 0x5AE590 + 0x1;
+        aml->Redirect(pGameAddr + 0x5AE566 + 0x1, (uintptr_t)ActiveOccludersInterior_Patch);
+        aml->Redirect(pGameAddr + 0x5AE574 + 0x1, (uintptr_t)ActiveOccludersInterior_Patch);
+
+        // COcclusion::ProcessBeforeRendering: nearby (outdoor) occluders loop
+        ActiveOccludersNearby_Continue = pGameAddr + 0x5AE810 + 0x1;
+        ActiveOccludersNearby_Break =    pGameAddr + 0x5AE84E + 0x1;
+        aml->Redirect(pGameAddr + 0x5AE80C + 0x1, (uintptr_t)ActiveOccludersNearby_Patch);
+    }
 }
