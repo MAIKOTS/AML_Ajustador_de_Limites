@@ -199,7 +199,7 @@ void PatchMisc()
     HOOKBLX(ExtraObjectsDir_New, pGameAddr + 0x46BCE4 + 0x1);
 
     // Occluders
-    PatchOccluders();
+    //PatchOccluders();
 
     // Minimum number of iterations in LoadAllRequestedModels
     int iters = cfg->GetInt("LoadModelsIterations", ADJUSTED_POOL_LIMIT(10), "Misc");

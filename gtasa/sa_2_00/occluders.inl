@@ -13,15 +13,21 @@ __attribute__((optnone)) __attribute__((naked)) void GlobalOccluders_AddOne_Patc
 {
     asm("LDR R0, [R0]");
     asm("LDR R0, [R0]");
+    asm("PUSH {R0}"); // the continue target reuses R0 as the occluder count
     asm("BL GlobalOccluders_AddOne_Inject");
-    asm("BX R0");
+    asm("MOV R12, R0");
+    asm("POP {R0}");
+    asm("BX R12");
 }
 __attribute__((optnone)) __attribute__((naked)) void InteriorOccluders_AddOne_Patch(void)
 {
     asm("LDR R0, [R0]");
     asm("LDR R0, [R0]");
+    asm("PUSH {R0}"); // the continue target reuses R0 as the occluder count
     asm("BL InteriorOccluders_AddOne_Inject");
-    asm("BX R0");
+    asm("MOV R12, R0");
+    asm("POP {R0}");
+    asm("BX R12");
 }
 
 uintptr_t ActiveOccludersInterior_Continue, ActiveOccludersInterior_Break, ActiveOccludersNearby_Continue, ActiveOccludersNearby_Break;
@@ -35,13 +41,19 @@ extern "C" uintptr_t ActiveOccludersNearby_Inject(int val)
 }
 __attribute__((optnone)) __attribute__((naked)) void ActiveOccludersInterior_Patch(void)
 {
+    asm("PUSH {R0}"); // the continue target reuses R0 as the active-occluder index
     asm("BL ActiveOccludersInterior_Inject");
-    asm("BX R0");
+    asm("MOV R12, R0");
+    asm("POP {R0}");
+    asm("BX R12");
 }
 __attribute__((optnone)) __attribute__((naked)) void ActiveOccludersNearby_Patch(void)
 {
+    asm("PUSH {R0, LR}"); // R0 = active-occluder index; LR is reused as a persistent stack-data pointer by this loop, on both the continue and break paths
     asm("BL ActiveOccludersNearby_Inject");
-    asm("BX R0");
+    asm("MOV R12, R0");
+    asm("POP {R0, LR}");
+    asm("BX R12");
 }
 
 void PatchOccluders()
