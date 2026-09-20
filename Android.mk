@@ -1,5 +1,7 @@
 LOCAL_PATH := $(call my-dir)
 
+# gghggf
+
 include $(CLEAR_VARS)
 LOCAL_CPP_EXTENSION := .cpp .cc
 LOCAL_SRC_FILES := main.cpp mod/logger.cpp mod/config.cpp
